@@ -1,5 +1,6 @@
 import docxtpl
 
+
 def set_up_docx_inline(url):
     from io import BytesIO
     from requests import get as requestsget
@@ -51,6 +52,7 @@ def repeat_to_table(fp_object, rel_table_name):
 
 
 def fp_to_docx(fp_object, template, out_folder, doc_name):
+    from docx.shared import Mm, Inches
     from os.path import join
     doc_template = docxtpl.DocxTemplate(template)
     in_vars = doc_template.get_undeclared_template_variables()
@@ -58,13 +60,15 @@ def fp_to_docx(fp_object, template, out_folder, doc_name):
     for var in in_vars:
         try:
             if fp_object.fm_main[var]['domain_trans']:
-                dict_vars[var] = fp_object.fm_main[var]['domain_trans'][fp_object.attributes[var]]
+                try:
+                    dict_vars[var] = fp_object.fm_main[var]['domain_trans'][fp_object.attributes[var]]
+                except KeyError:
+                    dict_vars[var] = fp_object.attributes[var]
             else:
                 dict_vars[var]=fp_object.attributes[var]
         except KeyError:
-            print('non-attribute: {}'.format(var))
             if 'att' in var:
-                print('attachment {}'.format(var))
+                print('\tattachment {}'.format(var))
                 if 'att20_' in var:
                     att_url = find_attachment(fp_object.att_res, var.replace('att20_',''))
                     if att_url == None:
@@ -81,91 +85,11 @@ def fp_to_docx(fp_object, template, out_folder, doc_name):
                 related_set = find_related_table(fp_object, var.replace('rel_', ''))
                 if len(related_set.features) > 0:
                     dict_vars[var] = related_set.return_sdf().to_dict('records')
+
+            else:
+                print('\tnon-attribute: {}'.format(var))
     doc_template.render(dict_vars)
+    if '.docx' not in doc_name:
+        doc_name = doc_name + '.docx'
+    print('\tsaving...')
     return doc_template.save(join(out_folder, doc_name))
-
-
-
-def permissioning_to_report(layer, oid, template, out_folder):
-    from os.path import join
-    print(oid)
-    fp_tester = Utils.from_layer(layer, 'OBJECTID = {}'.format(oid))
-
-    doc_template = docxtpl.DocxTemplate(template)
-
-    in_vars = doc_template.get_undeclared_template_variables()
-
-    att_url = fp_tester.att_res[0]['DOWNLOAD_URL']
-    dict_vars = {}
-    for var in in_vars:
-        try:
-            dict_vars[var]=fp_tester.attributes[var]
-        except KeyError:
-            print('non-attribute: {}'.format(var))
-            if 'att' in var:
-                print('attachment {}'.format(var))
-                if 'att20_' in var:
-                    att_url = find_attachment(fp_tester.att_res, var.replace('att20_',''))
-                    if att_url == None:
-                        pass
-                    else:
-                        dict_vars[var] = docxtpl.InlineImage(doc_template, set_up_docx_inline(att_url), height=Mm(20))
-                else:
-                    att_url = find_attachment(fp_tester.att_res, var.replace('att_',''))
-                    if att_url == None:
-                        pass
-                    else:
-                        dict_vars[var] = docxtpl.InlineImage(doc_template, set_up_docx_inline(att_url),width=Inches(6))
-
-
-
-    table_data = fp_tester.related_data[0].return_sdf().to_dict('records')
-    dict_vars['items']=table_data
-    doc_template.render(dict_vars)
-    doc_template.save(join(out_folder, 'GTVM_Permissioning_{}.docx'.format(fp_tester.attributes['FRM_APN'])))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
